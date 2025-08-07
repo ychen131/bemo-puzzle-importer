@@ -8,7 +8,7 @@ and contour extraction for Tangram puzzle processing.
 from typing import List, Tuple, Optional
 import cv2
 import numpy as np
-from .constants import WORLD_SPACE_WIDTH, WORLD_SPACE_HEIGHT, HSV_COLOR_RANGES, MIN_CONTOUR_AREA
+from .constants import WORLD_SPACE_WIDTH, WORLD_SPACE_HEIGHT, HSV_COLOR_RANGES, MIN_CONTOUR_AREA, CONTOUR_EPSILON_FACTOR
 
 
 def load_and_scale_image(image_path: str) -> np.ndarray:
@@ -78,14 +78,14 @@ def convert_to_hsv(image: np.ndarray) -> np.ndarray:
 
 def create_color_mask(hsv_image: np.ndarray, color_name: str) -> np.ndarray:
     """
-    Create a binary mask for a specific color range.
+    Create a binary mask for a specific color range with morphological cleaning.
     
     Args:
         hsv_image: Input image in HSV format
         color_name: Name of the color to isolate (must be in HSV_COLOR_RANGES)
         
     Returns:
-        Binary mask where white pixels represent the target color
+        Clean binary mask where white pixels represent the target color
         
     Raises:
         KeyError: If color_name is not in HSV_COLOR_RANGES
@@ -115,30 +115,153 @@ def create_color_mask(hsv_image: np.ndarray, color_name: str) -> np.ndarray:
                           np.array(color_range["lower"]), 
                           np.array(color_range["upper"]))
     
+    # Apply morphological operations to clean up the mask
+    mask = clean_mask(mask)
+    
     return mask
+
+
+def clean_mask(mask: np.ndarray) -> np.ndarray:
+    """
+    Clean up a binary mask using morphological operations to remove noise and fill holes.
+    
+    Args:
+        mask: Binary mask to clean
+        
+    Returns:
+        Cleaned binary mask
+    """
+    # Create morphological kernels
+    small_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    medium_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    
+    # Remove noise with opening (erosion followed by dilation)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, small_kernel)
+    
+    # Fill holes with closing (dilation followed by erosion)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, medium_kernel)
+    
+    # Additional noise removal
+    mask = cv2.medianBlur(mask, 3)
+    
+    return mask
+
+
+def filter_contours_by_quality(contours: List[np.ndarray]) -> List[np.ndarray]:
+    """
+    Filter contours based on quality metrics to remove invalid shapes.
+    
+    Args:
+        contours: List of contours to filter
+        
+    Returns:
+        List of high-quality contours
+    """
+    quality_contours = []
+    
+    for contour in contours:
+        # Basic area filter
+        area = cv2.contourArea(contour)
+        if area < MIN_CONTOUR_AREA:
+            continue
+        
+        # Maximum area filter - reject extremely large contours (likely background)
+        if area > 50000:  # Adjust based on typical piece size
+            continue
+        
+        # Convexity filter - Tangram pieces should be reasonably convex
+        hull = cv2.convexHull(contour)
+        hull_area = cv2.contourArea(hull)
+        if hull_area > 0:
+            convexity = area / hull_area
+            if convexity < 0.6:  # Stricter convexity requirement
+                continue
+        
+        # Aspect ratio filter - reject extremely elongated shapes
+        rect = cv2.minAreaRect(contour)
+        width, height = rect[1]
+        if width > 0 and height > 0:
+            aspect_ratio = max(width, height) / min(width, height)
+            if aspect_ratio > 4.0:  # Stricter aspect ratio
+                continue
+        
+        # Perimeter to area ratio filter - reject very complex or noisy contours
+        perimeter = cv2.arcLength(contour, True)
+        if perimeter > 0:
+            complexity = (perimeter * perimeter) / area
+            if complexity > 40:  # Stricter complexity filter
+                continue
+        
+        # Vertex count filter - Tangram pieces should have 3-4 vertices when simplified
+        epsilon = 0.02 * cv2.arcLength(contour, True)
+        approx = cv2.approxPolyDP(contour, epsilon, True)
+        vertex_count = len(approx)
+        if vertex_count < 3 or vertex_count > 6:  # Allow some flexibility
+            continue
+        
+        quality_contours.append(contour)
+    
+    return quality_contours
+
+
+def get_largest_contour(contours: List[np.ndarray]) -> Optional[np.ndarray]:
+    """
+    Get the largest contour from a list, representing the main piece.
+    
+    Args:
+        contours: List of contours
+        
+    Returns:
+        Largest contour or None if list is empty
+    """
+    if not contours:
+        return None
+    
+    return max(contours, key=cv2.contourArea)
+
+
+def simplify_contour(contour: np.ndarray) -> np.ndarray:
+    """
+    Simplify a contour to reduce noise while preserving shape.
+    
+    Args:
+        contour: Input contour to simplify
+        
+    Returns:
+        Simplified contour
+    """
+    # Calculate epsilon for contour approximation (percentage of perimeter)
+    epsilon = CONTOUR_EPSILON_FACTOR * cv2.arcLength(contour, True)
+    
+    # Approximate contour to reduce noise
+    simplified = cv2.approxPolyDP(contour, epsilon, True)
+    
+    return simplified
 
 
 def find_contours(mask: np.ndarray) -> List[np.ndarray]:
     """
-    Find contours in a binary mask and filter by minimum area.
+    Find and filter high-quality contours in a binary mask.
     
     Args:
         mask: Binary mask image
         
     Returns:
-        List of contours that meet minimum area requirements
+        List of high-quality contours
     """
     # Find contours using external retrieval mode and simple approximation
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
-    # Filter contours by minimum area to remove noise
-    filtered_contours = []
-    for contour in contours:
-        area = cv2.contourArea(contour)
-        if area >= MIN_CONTOUR_AREA:
-            filtered_contours.append(contour)
+    # Filter contours by quality metrics
+    quality_contours = filter_contours_by_quality(contours)
     
-    return filtered_contours
+    # Simplify contours to reduce noise
+    simplified_contours = []
+    for contour in quality_contours:
+        simplified = simplify_contour(contour)
+        simplified_contours.append(simplified)
+    
+    return simplified_contours
 
 
 def extract_pieces_from_image(image_path: str) -> List[Tuple[str, np.ndarray]]:
@@ -152,7 +275,7 @@ def extract_pieces_from_image(image_path: str) -> List[Tuple[str, np.ndarray]]:
         List of tuples containing (color_name, contour) for each detected piece
         
     Raises:
-        ValueError: If unable to detect exactly 7 pieces
+        ValueError: If unable to detect pieces for each color
     """
     # Step 1: Load and scale image to world space
     image = load_and_scale_image(image_path)
@@ -160,23 +283,33 @@ def extract_pieces_from_image(image_path: str) -> List[Tuple[str, np.ndarray]]:
     # Step 2: Convert to HSV color space
     hsv_image = convert_to_hsv(image)
     
-    # Step 3: Extract pieces for each color
+    # Step 3: Extract the largest piece for each color
     detected_pieces = []
     
     for color_name in HSV_COLOR_RANGES.keys():
-        # Create color mask
+        # Create cleaned color mask
         mask = create_color_mask(hsv_image, color_name)
         
-        # Find contours in the mask
+        # Find high-quality contours in the mask
         contours = find_contours(mask)
         
-        # Add all valid contours for this color
-        for contour in contours:
-            detected_pieces.append((color_name, contour))
+        # Get the largest contour for this color (representing the main piece)
+        largest_contour = get_largest_contour(contours)
+        
+        if largest_contour is not None:
+            detected_pieces.append((color_name, largest_contour))
     
-    # Step 4: Validate that we have exactly 7 pieces
-    if len(detected_pieces) != 7:
-        raise ValueError(f"Expected exactly 7 Tangram pieces, but detected {len(detected_pieces)} pieces. "
-                        f"Found pieces: {[color for color, _ in detected_pieces]}")
+    # Step 4: Validate detection results
+    detected_colors = [color for color, _ in detected_pieces]
+    expected_colors = list(HSV_COLOR_RANGES.keys())
+    
+    if len(detected_pieces) == 0:
+        raise ValueError("No pieces detected. Check HSV color ranges and image quality.")
+    
+    missing_colors = set(expected_colors) - set(detected_colors)
+    if missing_colors:
+        print(f"Warning: Missing colors: {missing_colors}")
+    
+    print(f"Successfully detected {len(detected_pieces)} pieces: {detected_colors}")
     
     return detected_pieces

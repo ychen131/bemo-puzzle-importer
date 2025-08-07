@@ -137,35 +137,34 @@ PIECE_GEOMETRY = {
 # and account for camera variations while maintaining distinct color separation.
 HSV_COLOR_RANGES: Dict[str, Dict[str, Tuple[int, int, int]]] = {
     "red": {
-        # Red wraps around HSV hue spectrum, so we need two ranges
-        "lower": (0, 100, 100),      # Primary red range
+        "lower": (0, 100, 100),
         "upper": (10, 255, 255),
-        "lower2": (170, 100, 100),   # Secondary red range (high hue values)
+        "lower2": (170, 100, 100),
         "upper2": (179, 255, 255)
     },
     "orange": {
-        "lower": (11, 100, 100),     # Distinct from red and yellow
+        "lower": (11, 100, 100),
         "upper": (25, 255, 255)
     },
     "yellow": {
-        "lower": (26, 80, 120),      # Lower saturation threshold for yellow
-        "upper": (35, 255, 255)
+        "lower": (20, 50, 100),
+        "upper": (40, 255, 255)
     },
     "green": {
-        "lower": (36, 100, 80),      # Wide range for various green shades
-        "upper": (85, 255, 255)
+        "lower": (35, 70, 60),
+        "upper": (90, 255, 255)
     },
     "blue": {
-        "lower": (86, 120, 80),      # Distinct from green and purple
-        "upper": (125, 255, 255)
+        "lower": (80, 80, 60),
+        "upper": (130, 255, 255)
     },
     "purple": {
-        "lower": (126, 100, 80),     # Violet/purple range
-        "upper": (155, 255, 255)
+        "lower": (120, 70, 60),
+        "upper": (160, 255, 255)
     },
     "pink": {
-        "lower": (150, 50, 100),     # Pink/magenta range (using alternative range)
-        "upper": (175, 255, 255)     # Better detection for pink
+        "lower": (150, 50, 100),
+        "upper": (175, 255, 255)
     }
 }
 
