@@ -1,0 +1,115 @@
+{
+  "test_run_info": {
+    "timestamp": "2025-08-08T09:26:23.347654",
+    "total_images_tested": 3,
+    "successful_processing": 3,
+    "failed_processing": 0
+  },
+  "image_results": {
+    "cat.JPG": {
+      "status": "success",
+      "detected_pieces": 7,
+      "classified_pieces": 7,
+      "detection_rate": 1.0,
+      "classification_rate": 1.0,
+      "average_confidence": 0.7142857142857143,
+      "piece_distribution": {
+        "small_triangle": 4,
+        "square": 2,
+        "parallelogram": 1
+      },
+      "is_complete_set": false,
+      "detected_colors": [
+        "red",
+        "orange",
+        "yellow",
+        "green",
+        "blue",
+        "purple",
+        "pink"
+      ]
+    },
+    "rocket.JPG": {
+      "status": "success",
+      "detected_pieces": 6,
+      "classified_pieces": 5,
+      "detection_rate": 0.8571428571428571,
+      "classification_rate": 0.8333333333333334,
+      "average_confidence": 0.96,
+      "piece_distribution": {
+        "small_triangle": 3,
+        "square": 1,
+        "parallelogram": 1
+      },
+      "is_complete_set": false,
+      "detected_colors": [
+        "red",
+        "orange",
+        "yellow",
+        "green",
+        "blue",
+        "purple"
+      ]
+    },
+    "tree.JPG": {
+      "status": "success",
+      "detected_pieces": 6,
+      "classified_pieces": 6,
+      "detection_rate": 0.8571428571428571,
+      "classification_rate": 1.0,
+      "average_confidence": 0.6833333333333335,
+      "piece_distribution": {
+        "small_triangle": 4,
+        "square": 1,
+        "parallelogram": 1
+      },
+      "is_complete_set": false,
+      "detected_colors": [
+        "red",
+        "yellow",
+        "green",
+        "blue",
+        "purple",
+        "pink"
+      ]
+    }
+  },
+  "performance_metrics": {
+    "detection_rates": [
+      1.0,
+      0.8571428571428571,
+      0.8571428571428571
+    ],
+    "classification_rates": [
+      1.0,
+      0.8333333333333334,
+      1.0
+    ],
+    "average_confidence": [
+      0.7142857142857143,
+      0.96,
+      0.6833333333333335
+    ]
+  },
+  "piece_type_analysis": {
+    "small_triangle": [
+      4,
+      3,
+      4
+    ],
+    "square": [
+      2,
+      1,
+      1
+    ],
+    "parallelogram": [
+      1,
+      1,
+      1
+    ]
+  },
+  "error_analysis": {},
+  "recommendations": [
+    "Missing triangle size differentiation - improve area ratio classification"
+  ]
+}
